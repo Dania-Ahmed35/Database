@@ -2,25 +2,25 @@ CREATE DATABASE bookstore;
 
 USE bookstore;
 
-CREATE TABLE User(
+CREATE TABLE Users(
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     first_name VARCHAR(50),
     last_name  VARCHAR(50),
     email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL
 
-)
+);
 
 CREATE TABLE Admins(
     admin_id INT AUTO_INCREMENT PRIMARY KEY,
-    FOREIGN KEY (admin_id) REFERENCES User (user_id)
+    FOREIGN KEY (admin_id) REFERENCES Users (user_id)
 );
 
 CREATE TABLE Customers(
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     phone_number VARCHAR(20),
     shipping_address VARCHAR(256),
-    FOREIGN KEY (customer_id) REFERENCES User (user_id)
+    FOREIGN KEY (customer_id) REFERENCES Users (user_id)
     );  
 
 CREATE TABLE Publishers(
@@ -41,12 +41,12 @@ CREATE TABLE Books(
     title VARCHAR(255) NOT NULL,
     publication_year YEAR,
     selling_price DECIMAL(10,2),
-    category ENUM('Science','Art','Religion','History','Geography'),
     stock_level INT DEFAULT 0,
     threshold INT DEFAULT 5,
     publisher_id INT,
+    category_id INT,
     book_image VARCHAR(255),
-    FOREIGN KEY (publisher_id) REFERENCES Publishers(publisher_id)
+    FOREIGN KEY (publisher_id) REFERENCES Publishers(publisher_id),
     FOREIGN KEY (category_id)  REFERENCES  Category(category_id)
 );
 
