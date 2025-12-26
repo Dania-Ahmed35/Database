@@ -45,6 +45,7 @@ CREATE TABLE Books(
     stock_level INT DEFAULT 0,
     threshold INT DEFAULT 5,
     publisher_id INT,
+    book_image VARCHAR(255),
     FOREIGN KEY (publisher_id) REFERENCES Publishers(publisher_id)
     FOREIGN KEY (category_id)  REFERENCES  Category(category_id)
 );
