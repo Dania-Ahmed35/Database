@@ -157,7 +157,7 @@ const fetchHistory = async () => {
   try {
     // replace 1 with logged-in customer id
     const res = await axios.get(
-      "http://localhost:8080/orders/history/1"
+      "http://localhost:8080/orders/history/"
     );
 
     // group by order number
