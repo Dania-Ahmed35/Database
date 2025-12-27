@@ -155,7 +155,7 @@ const handleLogin = async (role) => {
     //  FRONTEND to BACKEND 
     console.log("LOGIN DATA SENT:", { ...data, role });
 
-    const res = await fetch("http://localhost:5000/api/login", {
+    const res = await fetch("http://localhost:5050/api/users/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -209,21 +209,34 @@ const handleLogin = async (role) => {
     Object.values(errors).every((e) => !e) &&
     Object.values(data).every((v) => v !== "");
 
-  const handleRegister = async (role) => {
-    const data = role === "admin" ? adminRegister : userRegister;
+ const handleRegister = async (role) => {
+  const data = role === "admin" ? adminRegister : userRegister;
 
-    await fetch("http://localhost:5000/api/register", {
+  try {
+    const response = await fetch("http://localhost:5050/api/users/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
     });
 
-    role === "admin"
-      ? setOpenAdminRegister(false)
-      : setOpenUserRegister(false);
+    const result = await response.json();
 
+    if (!response.ok) {
+      // This will catch the "Email already registered" error
+      alert(result.error || "Signup failed");
+      return;
+    }
+
+    // Success logic
+    alert(result.message);
+    role === "admin" ? setOpenAdminRegister(false) : setOpenUserRegister(false);
     setOpenLogin(role);
-  };
+
+  } catch (error) {
+    console.error("Network error:", error);
+    alert("Could not connect to the server.");
+  }
+};
 
 
   // checkout
