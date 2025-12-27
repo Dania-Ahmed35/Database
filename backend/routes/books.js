@@ -100,7 +100,6 @@ router.post("/book", async (req, res) => {
 });
 
 // modify an existing book
-
 router.put("/book", async (req, res) => {
 	const { role, isbn, title, price, category, stock_level, publisher } =
 		req.body;
@@ -154,11 +153,10 @@ router.put("/book", async (req, res) => {
 	}
 });
 
-/**
- * 5. SEARCH FOR BOOKS
- * Requirement: Search by ISBN, Title, Category, Author, or Publisher.
- * Includes availability (QuantityInStock).
- */
+// SEARCH FOR BOOKS
+// Requirement: Search by ISBN, Title, Category, Author, or Publisher.
+// admin or customers can search for books
+
 router.get("/search", async (req, res) => {
 	const { isbn, title, category, author, publisher } = req.query;
 
