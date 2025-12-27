@@ -46,12 +46,15 @@ const isValidPhone = (v) => /^[0-9]{10,15}$/.test(v);
 
 export default function HomeNavbar({
   cartItems,
+  setCartItems, 
   incrementQty,
   decrementQty,
   removeFromCart,
-  isAdmin,  
-  setBooks,      
+  isAdmin,
+  setBooks,
+  onLogout,
 }) {
+
 
 
   /* ---------- UI STATE ---------- */
@@ -80,9 +83,10 @@ export default function HomeNavbar({
   };
 
   const handleLogoutClick = () => {
-    handleLogout(); // your existing logout logic
-    handleMenuClose();
-  };
+  onLogout();     
+  handleMenuClose();
+};
+
 
 const [profileData, setProfileData] = React.useState({
   firstName: "",
@@ -103,6 +107,7 @@ const [profileErrors, setProfileErrors] = React.useState({});
   const [adminPasswordError, setAdminPasswordError] = React.useState("");
   const [userEmailError, setUserEmailError] = React.useState("");
   const [userPasswordError, setUserPasswordError] = React.useState("");
+  const [cartItems, setCartItems] = useState([]);
   const [loginServerError, setLoginServerError] = React.useState("");
   const [checkoutData, setCheckoutData] = React.useState({
   address: "",
@@ -181,7 +186,24 @@ const cartTotal = cartItems.reduce(
         );
     }
   };
+  try {
+    const res = await axios.get(
+      `http://localhost:5050/cartDisplay`,
+      {
+        params: { customer_email: auth.email },
+      }
+    );
 
+    setCartItems(res.data.items);
+    setCartTotal(
+      res.data.items.length > 0
+        ? res.data.items[0].cart_total
+        : 0
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
 const handleLogin = async (role) => {
   const data = role === "admin" ? adminLogin : userLogin;
 
@@ -197,7 +219,7 @@ const handleLogin = async (role) => {
     //  FRONTEND to BACKEND 
     console.log("LOGIN DATA SENT:", { ...data, role });
 
-    const res = await fetch("http://localhost:5000/api/login", {
+    const res = await fetch("http://localhost:5050/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -210,7 +232,6 @@ const handleLogin = async (role) => {
       return;
     }
 
-    // ✅ SUCCESS
     setIsLoggedIn(true);
     setOpenLogin(null);
     setAdminLogin({ email: "", password: "" });
@@ -227,7 +248,7 @@ const handleSearch = async (value) => {
   // If search is empty → reload all books
   if (value.trim() === "") {
     try {
-      const res = await axios.get("http://localhost:8080/books");
+      const res = await axios.get("http://localhost:5050/books");
       setBooks(res.data);
     } catch (err) {
       console.error("Failed to reload books", err);
@@ -236,7 +257,7 @@ const handleSearch = async (value) => {
   }
 
   try {
-    const res = await axios.get("http://localhost:8080/search", {
+    const res = await axios.get("http://localhost:5050/search", {
       params: {
         isbn: value,
         title: value,
@@ -277,7 +298,7 @@ const handleProfileSave = async () => {
   if (Object.values(profileErrors).some(Boolean)) return;
 
   try {
-    await fetch("http://localhost:5000/api/update-profile", {
+    await fetch("http://localhost:5050/api/update-profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -323,61 +344,46 @@ const handleProfileSave = async () => {
   };
 
 
+
+
+
+
   // checkout
 const handleCheckoutChange = (field, value) => {
   let error = "";
 
-  // ---------- CARD NUMBER ----------
   if (field === "cardNumber") {
-    // remove spaces
     const cleaned = value.replace(/\s+/g, "");
+    if (!/^\d*$/.test(cleaned)) error = "Digits only";
+    else if (cleaned.length && cleaned.length !== 16)
+      error = "16 digits required";
 
-    if (!/^\d*$/.test(cleaned)) {
-      error = "Card number must contain digits only";
-    } else if (cleaned.length > 0 && cleaned.length !== 16) {
-      error = "Card number must be 16 digits";
-    }
-
-    // format as XXXX XXXX XXXX XXXX
     value = cleaned
+      .slice(0, 16)
       .replace(/(.{4})/g, "$1 ")
       .trim();
   }
 
-  // ---------- EXPIRY DATE ----------
   if (field === "expiryDate") {
-    if (!/^\d{0,2}\/?\d{0,2}$/.test(value)) {
-      error = "Use MM/YY format";
-    } else if (value.length === 5) {
-      const [month, year] = value.split("/").map(Number);
-
-      if (month < 1 || month > 12) {
-        error = "Invalid month";
-      } else {
-        const now = new Date();
-        const currentYear = now.getFullYear() % 100;
-        const currentMonth = now.getMonth() + 1;
-
-        if (
-          year < currentYear ||
-          (year === currentYear && month < currentMonth)
-        ) {
-          error = "Card has expired";
-        }
-      }
+    if (!/^\d{0,2}\/?\d{0,2}$/.test(value))
+      error = "MM/YY format";
+    else if (value.length === 5) {
+      const [m, y] = value.split("/").map(Number);
+      const now = new Date();
+      if (m < 1 || m > 12) error = "Invalid month";
+      else if (
+        y < now.getFullYear() % 100 ||
+        (y === now.getFullYear() % 100 && m < now.getMonth() + 1)
+      )
+        error = "Card expired";
     }
   }
 
-  setCheckoutData((prev) => ({
-    ...prev,
-    [field]: value,
-  }));
-
-  setCheckoutErrors((prev) => ({
-    ...prev,
-    [field]: error,
-  }));
+  setCheckoutData((p) => ({ ...p, [field]: value }));
+  setCheckoutErrors((p) => ({ ...p, [field]: error }));
 };
+
+
 
 
 
@@ -552,15 +558,17 @@ const handleCheckoutChange = (field, value) => {
               sx={{ bgcolor: "#C4A484" }}
               onClick={() => handleLogin(openLogin)}
               disabled={
-              checkoutErrors.address ||
-              checkoutErrors.phone ||
-              checkoutErrors.cardNumber ||
-              checkoutErrors.expiryDate ||
-              !checkoutData.address ||
-              !checkoutData.phone ||
-              !checkoutData.cardNumber ||
-              !checkoutData.expiryDate
-            }
+          openLogin === "admin"
+            ? !adminLogin.email ||
+              !adminLogin.password ||
+              adminEmailError ||
+              adminPasswordError
+            : !userLogin.email ||
+              !userLogin.password ||
+              userEmailError ||
+              userPasswordError
+        }
+
 
             >
               Login

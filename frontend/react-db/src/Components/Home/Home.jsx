@@ -16,10 +16,13 @@ export default function Home({
   incrementQty,
   decrementQty,
   removeFromCart,
+  onLogout,  
 }) {
+
   const [books, setBooks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
 
   useEffect(() => {
     const getBooks = async () => {
@@ -29,6 +32,12 @@ export default function Home({
     };
     getBooks();
   }, [currentPage]);
+// ---------------- FETCH CART WHEN CART OPENS ----------------
+useEffect(() => {
+  if (cartOpen) {
+    fetchCart();
+  }
+}, [cartOpen]);
 
   return (
     <div
@@ -39,13 +48,18 @@ export default function Home({
       }}
     >
       {/* NAVBAR */}
-      <HomeNavbar
-        cartItems={cartItems}
-        incrementQty={incrementQty}
-        decrementQty={decrementQty}
-        removeFromCart={removeFromCart}
-        isAdmin={auth.role === "admin"}
-      />
+     <HomeNavbar
+      cartItems={cartItems}
+      incrementQty={incrementQty}
+      decrementQty={decrementQty}
+      removeFromCart={removeFromCart}
+      isAdmin={auth.role === "admin"}
+      setBooks={setBooks}
+      onLogout={onLogout}
+    />
+
+
+
 
       {/* SIDEBAR (RENDER ONCE) */}
       <SideBar isAdmin={auth.role === "admin"} />
