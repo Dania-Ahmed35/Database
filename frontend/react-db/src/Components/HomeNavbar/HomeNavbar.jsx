@@ -203,7 +203,13 @@ const handleLogin = async (role) => {
     //  FRONTEND to BACKEND 
     console.log("LOGIN DATA SENT:", { ...data, role });
 
+<<<<<<< HEAD
     const res = await fetch("http://localhost:5050/api/users/login", {
+=======
+
+    const res = await fetch("http://localhost:5050/api/users/login", {
+ 
+>>>>>>> a8d8e4e995731a01b25850854cf20ba0b9dab0e6
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -311,21 +317,38 @@ const handleProfileSave = async () => {
     Object.values(errors).every((e) => !e) &&
     Object.values(data).every((v) => v !== "");
 
-  const handleRegister = async (role) => {
-    const data = role === "admin" ? adminRegister : userRegister;
+ const handleRegister = async (role) => {
+  const data = role === "admin" ? adminRegister : userRegister;
 
+<<<<<<< HEAD
     await fetch("http://localhost:5000/api/signup", {
+=======
+  try {
+    const response = await fetch("http://localhost:5050/api/users/signup", {
+>>>>>>> a8d8e4e995731a01b25850854cf20ba0b9dab0e6
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
     });
 
-    role === "admin"
-      ? setOpenAdminRegister(false)
-      : setOpenUserRegister(false);
+    const result = await response.json();
 
+    if (!response.ok) {
+      // This will catch the "Email already registered" error
+      alert(result.error || "Signup failed");
+      return;
+    }
+
+    // Success logic
+    alert(result.message);
+    role === "admin" ? setOpenAdminRegister(false) : setOpenUserRegister(false);
     setOpenLogin(role);
-  };
+
+  } catch (error) {
+    console.error("Network error:", error);
+    alert("Could not connect to the server.");
+  }
+};
 
 
 
@@ -560,18 +583,17 @@ const handleCheckoutChange = (field, value) => {
               variant="contained"
               sx={{ bgcolor: "#C4A484" }}
               onClick={() => handleLogin(openLogin)}
-              disabled={
-          openLogin === "admin"
-            ? !adminLogin.email ||
-              !adminLogin.password ||
-              adminEmailError ||
-              adminPasswordError
-            : !userLogin.email ||
-              !userLogin.password ||
-              userEmailError ||
-              userPasswordError
-        }
 
+            //   disabled={
+            //   checkoutErrors.address ||
+            //   checkoutErrors.phone ||
+            //   checkoutErrors.cardNumber ||
+            //   checkoutErrors.expiryDate ||
+            //   !checkoutData.address ||
+            //   !checkoutData.phone ||
+            //   !checkoutData.cardNumber ||
+            //   !checkoutData.expiryDate
+            // }
 
             >
               Login

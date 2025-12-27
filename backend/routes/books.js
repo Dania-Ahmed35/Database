@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
 });
 
 // add new book
-router.post("/book", async (req, res) => {
+router.post("/bookAdd", async (req, res) => {
 	const {
 		role,
 		isbn,

@@ -13,7 +13,7 @@ router.patch("/confirm", async (req, res) => {
 
 		//  Get the order details (ISBN and Quantity)
 		const [order] = await connection.query(
-			"SELECT isbn, quantity, Status FROM Publisher_Orders WHERE order_id = ?",
+			"SELECT adminId, isbn, quantity, Status FROM Publisher_Orders WHERE order_id = ?",
 			[orderId]
 		);
 
@@ -25,7 +25,10 @@ router.patch("/confirm", async (req, res) => {
 			throw new Error("Order has already been confirmed");
 		}
 
-		const { ISBN, Quantity } = order[0];
+		const { adminId, isbn, quantity } = order[0];
+
+		// set trigger variables
+		await connection.query(`SET @current_admin_id = ?`, [adminId]);
 
 		//  Update Order Status to 'Confirmed'
 		await connection.query(
@@ -52,7 +55,7 @@ router.patch("/confirm", async (req, res) => {
 });
 
 // admin places publisher order
-router.post("/order", async (req, res) => {
+router.post("/orderPlace", async (req, res) => {
 	const { role, admin_email, isbn, publisher_name } = req.body;
 	const QUANTITY = 50;
 

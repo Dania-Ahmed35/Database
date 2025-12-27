@@ -4,14 +4,7 @@ const db = require("../db");
 
 // signup
 router.post("/signup", async (req, res) => {
-	const {
-		first_name,
-		last_name,
-		email,
-		password,
-		phone_number,
-		shipping_address,
-	} = req.body;
+	const { first_name, last_name, email, password, phone_number } = req.body;
 
 	try {
 		// 1. Check if email already exists
@@ -30,24 +23,27 @@ router.post("/signup", async (req, res) => {
 		try {
 			await connection.beginTransaction();
 
-			// 2. Insert into Users table
+			//  Insert into Users table
 			const [userRes] = await connection.query(
 				"INSERT INTO Users (first_name, last_name, email, password) VALUES (?, ?, ?, ?)",
 				[first_name, last_name, email, password]
 			);
 			const userId = userRes.insertId;
 
-			// 3. Insert into Customers table
-			await connection.query(
-				"INSERT INTO Customers (customer_id, phone_number, shipping_address) VALUES (?, ?, ?)",
-				[userId, phone_number, shipping_address]
-			);
-
-			// 4. Initialize an empty shopping cart
-			await connection.query(
-				"INSERT INTO Shopping_Cart (customer_id) VALUES (?)",
-				[userId]
-			);
+			if (req.body.role === "admin") {
+				await connection.query("INSERT INTO Admins (admin_id) VALUES (?)", [
+					userId,
+				]);
+			} else {
+				await connection.query(
+					"INSERT INTO Customers (customer_id, phone_number) VALUES (?, ?)",
+					[userId, phone_number]
+				);
+				await connection.query(
+					"INSERT INTO Shopping_Cart (customer_id) VALUES (?)",
+					[userId]
+				);
+			}
 
 			await connection.commit();
 			res.status(201).json({ message: "Customer registered successfully!" });
