@@ -108,6 +108,7 @@ const [profileErrors, setProfileErrors] = React.useState({});
   const [userEmailError, setUserEmailError] = React.useState("");
   const [userPasswordError, setUserPasswordError] = React.useState("");
   const [cartItems, setCartItems] = useState([]);
+  const [carttTotal, setCarttTotal] = useState(0);
   const [loginServerError, setLoginServerError] = React.useState("");
   const [checkoutData, setCheckoutData] = React.useState({
   address: "",
@@ -186,24 +187,7 @@ const cartTotal = cartItems.reduce(
         );
     }
   };
-  try {
-    const res = await axios.get(
-      `http://localhost:5050/cartDisplay`,
-      {
-        params: { customer_email: auth.email },
-      }
-    );
 
-    setCartItems(res.data.items);
-    setCartTotal(
-      res.data.items.length > 0
-        ? res.data.items[0].cart_total
-        : 0
-    );
-  } catch (err) {
-    console.error(err);
-  }
-};
 const handleLogin = async (role) => {
   const data = role === "admin" ? adminLogin : userLogin;
 
@@ -219,9 +203,13 @@ const handleLogin = async (role) => {
     //  FRONTEND to BACKEND 
     console.log("LOGIN DATA SENT:", { ...data, role });
 
+<<<<<<< HEAD
+    const res = await fetch("http://localhost:5050/api/users/login", {
+=======
 
     const res = await fetch("http://localhost:5050/api/users/login", {
  
+>>>>>>> a8d8e4e995731a01b25850854cf20ba0b9dab0e6
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -250,7 +238,7 @@ const handleSearch = async (value) => {
   // If search is empty → reload all books
   if (value.trim() === "") {
     try {
-      const res = await axios.get("http://localhost:5050/books");
+      const res = await axios.get("http://localhost:5050/api/books/");
       setBooks(res.data);
     } catch (err) {
       console.error("Failed to reload books", err);
@@ -259,7 +247,7 @@ const handleSearch = async (value) => {
   }
 
   try {
-    const res = await axios.get("http://localhost:5050/search", {
+    const res = await axios.get("http://localhost:5050/api/books/search", {
       params: {
         isbn: value,
         title: value,
@@ -332,8 +320,12 @@ const handleProfileSave = async () => {
  const handleRegister = async (role) => {
   const data = role === "admin" ? adminRegister : userRegister;
 
+<<<<<<< HEAD
+    await fetch("http://localhost:5000/api/signup", {
+=======
   try {
     const response = await fetch("http://localhost:5050/api/users/signup", {
+>>>>>>> a8d8e4e995731a01b25850854cf20ba0b9dab0e6
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -367,38 +359,57 @@ const handleProfileSave = async () => {
 const handleCheckoutChange = (field, value) => {
   let error = "";
 
+  // ---------- CARD NUMBER ----------
   if (field === "cardNumber") {
+    // remove spaces
     const cleaned = value.replace(/\s+/g, "");
-    if (!/^\d*$/.test(cleaned)) error = "Digits only";
-    else if (cleaned.length && cleaned.length !== 16)
-      error = "16 digits required";
 
+    if (!/^\d*$/.test(cleaned)) {
+      error = "Card number must contain digits only";
+    } else if (cleaned.length > 0 && cleaned.length !== 16) {
+      error = "Card number must be 16 digits";
+    }
+
+  
     value = cleaned
-      .slice(0, 16)
       .replace(/(.{4})/g, "$1 ")
       .trim();
   }
 
+  // ---------- EXPIRY DATE ----------
   if (field === "expiryDate") {
-    if (!/^\d{0,2}\/?\d{0,2}$/.test(value))
-      error = "MM/YY format";
-    else if (value.length === 5) {
-      const [m, y] = value.split("/").map(Number);
-      const now = new Date();
-      if (m < 1 || m > 12) error = "Invalid month";
-      else if (
-        y < now.getFullYear() % 100 ||
-        (y === now.getFullYear() % 100 && m < now.getMonth() + 1)
-      )
-        error = "Card expired";
+    if (!/^\d{0,2}\/?\d{0,2}$/.test(value)) {
+      error = "Use MM/YY format";
+    } else if (value.length === 5) {
+      const [month, year] = value.split("/").map(Number);
+
+      if (month < 1 || month > 12) {
+        error = "Invalid month";
+      } else {
+        const now = new Date();
+        const currentYear = now.getFullYear() % 100;
+        const currentMonth = now.getMonth() + 1;
+
+        if (
+          year < currentYear ||
+          (year === currentYear && month < currentMonth)
+        ) {
+          error = "Card has expired";
+        }
+      }
     }
   }
 
-  setCheckoutData((p) => ({ ...p, [field]: value }));
-  setCheckoutErrors((p) => ({ ...p, [field]: error }));
+  setCheckoutData((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
+
+  setCheckoutErrors((prev) => ({
+    ...prev,
+    [field]: error,
+  }));
 };
-
-
 
 
 

@@ -39,7 +39,7 @@ const addToCart = async (book) => {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:5050/logout", {
+      await axios.post("http://localhost:5050/api/users/logout", {
         customer_id: auth.customer_id,
       });
     } catch (err) {
