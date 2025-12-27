@@ -20,6 +20,8 @@ import {
   DialogActions,
   Slide,
   TextField,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 
 /* ================= CONSTANTS ================= */
@@ -29,6 +31,8 @@ const pages = ["Admin Login", "User Login"];
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
+
+
 
 /* ================= VALIDATORS ================= */
 
@@ -45,7 +49,8 @@ export default function HomeNavbar({
   incrementQty,
   decrementQty,
   removeFromCart,
-  isAdmin,        
+  isAdmin,  
+  setBooks,      
 }) {
 
 
@@ -53,6 +58,42 @@ export default function HomeNavbar({
   const [openLogin, setOpenLogin] = React.useState(null); // "admin" | "user"
   const [openUserRegister, setOpenUserRegister] = React.useState(false);
   const [openAdminRegister, setOpenAdminRegister] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [openProfile, setOpenProfile] = React.useState(false);
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const openMenu = Boolean(anchorEl);
+
+  const handleAvatarClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleEditProfile = () => {
+    setProfileData(
+      openLogin === "admin" ? adminRegister : userRegister
+    );
+    setOpenProfile(true);
+    handleMenuClose();
+  };
+
+  const handleLogoutClick = () => {
+    handleLogout(); // your existing logout logic
+    handleMenuClose();
+  };
+
+const [profileData, setProfileData] = React.useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  password: "",
+});
+
+const [profileErrors, setProfileErrors] = React.useState({});
+
 
   /* ---------- LOGIN STATE ---------- */
   const [adminLogin, setAdminLogin] = React.useState({ email: "", password: "" });
@@ -77,6 +118,7 @@ const [checkoutErrors, setCheckoutErrors] = React.useState({
   cardNumber:"",
   expiryDate:"",
 });
+
 
 
   /* ---------- REGISTER STATE ---------- */
@@ -179,6 +221,36 @@ const handleLogin = async (role) => {
   }
 };
 
+const handleSearch = async (value) => {
+  setSearchTerm(value);
+
+  // If search is empty → reload all books
+  if (value.trim() === "") {
+    try {
+      const res = await axios.get("http://localhost:8080/books");
+      setBooks(res.data);
+    } catch (err) {
+      console.error("Failed to reload books", err);
+    }
+    return;
+  }
+
+  try {
+    const res = await axios.get("http://localhost:8080/search", {
+      params: {
+        isbn: value,
+        title: value,
+        category: value,
+        author: value,
+        publisher: value,
+      },
+    });
+
+    setBooks(res.data);
+  } catch (err) {
+    console.error("Search failed", err);
+  }
+};
 
 
   /* ================= REGISTER HANDLERS ================= */
@@ -196,6 +268,31 @@ const handleLogin = async (role) => {
 
     return { ...prev, [field]: msg };
   };
+  const handleProfileChange = (field, value) => {
+  setProfileData((p) => ({ ...p, [field]: value }));
+  setProfileErrors((p) => validateField(field, value, p));
+};
+
+const handleProfileSave = async () => {
+  if (Object.values(profileErrors).some(Boolean)) return;
+
+  try {
+    await fetch("http://localhost:5000/api/update-profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...profileData,
+        role: isAdmin ? "admin" : "user",
+      }),
+    });
+
+    setOpenProfile(false);
+    setOpenAlert(true);
+  } catch (err) {
+    console.error("Profile update failed", err);
+  }
+};
+
 
   const handleRegisterChange = (role, field, value) => {
     const setter = role === "admin" ? setAdminRegister : setUserRegister;
@@ -323,7 +420,13 @@ const handleCheckoutChange = (field, value) => {
             }}
           >
             <SearchIcon sx={{ fontSize: 20 }} />
-            <InputBase placeholder="Search…" sx={{ ml: 1 }} />
+           <InputBase
+          placeholder="Search by ISBN, title, author, category, publisher..."
+          sx={{ ml: 1, flex: 1 }}
+          value={searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+
           </Box>
           {isLoggedIn && (
           <Tooltip title="Cart">
@@ -333,9 +436,35 @@ const handleCheckoutChange = (field, value) => {
           </Tooltip>
         )}
 
-          <IconButton>
-            <Avatar />
-          </IconButton>
+          <Tooltip title="Account">
+            <IconButton onClick={handleAvatarClick}>
+              <Avatar />
+            </IconButton>
+
+                </Tooltip>
+                <Menu
+          anchorEl={anchorEl}
+          open={openMenu}
+          onClose={handleMenuClose}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "right",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "right",
+          }}
+        >
+          <MenuItem onClick={handleEditProfile}>
+            Edit Info
+          </MenuItem>
+
+          <MenuItem onClick={handleLogoutClick}>
+            Logout
+          </MenuItem>
+        </Menu>
+
+
         </Box>
 
         {/* LOGIN DIALOG */}
@@ -707,6 +836,54 @@ const handleCheckoutChange = (field, value) => {
   Confirm Order
 </Button>
 
+  </DialogActions>
+
+</Dialog>
+{/* ================= EDIT PROFILE ================= */}
+<Dialog
+  open={openProfile}
+  onClose={() => setOpenProfile(false)}
+  TransitionComponent={Transition}
+  maxWidth="sm"
+  fullWidth
+>
+  <DialogTitle>Edit Personal Information</DialogTitle>
+
+  <DialogContent>
+    {["firstName", "lastName", "email", "phone", "password"].map((field) => (
+      <TextField
+        key={field}
+        label={field}
+        type={field === "password" ? "password" : "text"}
+        fullWidth
+        margin="dense"
+        value={profileData[field]}
+        onChange={(e) =>
+          handleProfileChange(field, e.target.value)
+        }
+        error={Boolean(profileErrors[field])}
+        helperText={
+          field === "password"
+            ? "Leave empty to keep current password"
+            : profileErrors[field]
+        }
+      />
+    ))}
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={() => setOpenProfile(false)}>
+      Cancel
+    </Button>
+
+    <Button
+      variant="contained"
+      sx={{ bgcolor: "#C4A484" }}
+      disabled={Object.values(profileErrors).some(Boolean)}
+      onClick={handleProfileSave}
+    >
+      Save Changes
+    </Button>
   </DialogActions>
 </Dialog>
 
