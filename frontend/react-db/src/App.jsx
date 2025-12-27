@@ -7,9 +7,9 @@ function App() {
   /* ---------- CART STATE ---------- */
   const [cartItems, setCartItems] = useState([]);
   const [auth, setAuth] = useState({
-  isLoggedIn: true,
-  role: "admin",   // "admin" | "user"
-  email: "admin@test.com",
+  isLoggedIn: false,
+  role: "",   // "admin" | "user"
+  email: "",
 });
 
 
