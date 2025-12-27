@@ -68,7 +68,7 @@ useEffect(() => {
       <main
         style={{
           marginTop: navbarHeight,
-          marginLeft: drawerWidth,   // ✅ THIS FIXES EVERYTHING
+          marginLeft: drawerWidth,   
           padding: "40px",
           color: "white",
           minHeight: `calc(100vh - ${navbarHeight}px)`,
