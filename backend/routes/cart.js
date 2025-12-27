@@ -4,9 +4,39 @@ const db = require("../db");
 
 // checkout your cart
 router.post("/", async (req, res) => {
-	const { customer_email, card_number, expiry_date } = req.body;
+	const {
+		customer_email,
+		order_date,
+		card_number,
+		expiry_date,
+		shippingAddress,
+		phoneNo,
+	} = req.body;
 	const connection = await db.getConnection();
 
+	//  Validate Card Number (Basic 16-digit check)
+	const cardRegex = "/^d{16}$/";
+	if (!cardRegex.test(card_number)) {
+		return res
+			.status(400)
+			.json({ error: "Invalid Card Number. Must be 16 digits." });
+	}
+
+	// Validate Expiry Date (MM/YY format and in the future)
+	const [month, year] = expiry_date.split("/").map(Number);
+	const now = new Date();
+	const currentMonth = now.getMonth() + 1;
+	const currentYear = parseInt(now.getFullYear().toString().slice(-2));
+
+	if (!month || !year || month < 1 || month > 12) {
+		return res
+			.status(400)
+			.json({ error: "Invalid Expiry Date format (MM/YY)." });
+	}
+
+	if (year < currentYear || (year === currentYear && month < currentMonth)) {
+		return res.status(400).json({ error: "The credit card is expired." });
+	}
 	try {
 		await connection.beginTransaction();
 
@@ -25,7 +55,7 @@ router.post("/", async (req, res) => {
 
 		const customerId = customerSearch[0].customer_id;
 
-		// 1. Get Cart Items
+		//  Get Cart Items
 		const [cartItems] = await connection.query(
 			"SELECT ci.isbn, ci.quantity, b.selling_price, b.stock_level FROM Cart_Items ci JOIN Books b ON ci.isbn = b.isbn WHERE ci.cart_id = (SELECT cart_id FROM Shopping_Cart WHERE customer_id = ?)",
 			[customerId]
@@ -33,21 +63,22 @@ router.post("/", async (req, res) => {
 
 		if (cartItems.length === 0) throw new Error("Cart is empty");
 
-		// 2. Create Sales_Order
+		//  Create Sales_Order
 		const [orderRes] = await connection.query(
-			"INSERT INTO Sales_Orders (customer_id) VALUES (?)",
-			[customerId]
+			"INSERT INTO Sales_Orders (customer_id, order_date) VALUES (?,?)",
+			[customerId, order_date]
 		);
 		const orderId = orderRes.insertId;
 
+		// add customer info
+		const [customer] = await connection.query(
+			"UPDATE Customers SET phone_number = ? shipping_address = ?, WHERE customer_id = ?",
+			[phoneNo, shippingAddress, customerId]
+		);
 		for (const item of cartItems) {
-			// Check stock
-			if (item.stock_level < item.quantity)
-				throw new Error(`Not enough stock for ${item.isbn}`);
-
 			// Deduct Stock
 			await connection.query(
-				"UPDATE Books SET stock_level = stock_level - ? WHERE isbn = ?",
+				"UPDATE Books SET stock_level = stock_level - ?, WHERE isbn = ?",
 				[item.quantity, item.isbn]
 			);
 
@@ -65,7 +96,7 @@ router.post("/", async (req, res) => {
 		);
 
 		await connection.commit();
-		res.json({ message: "Checkout successful!", orderId });
+		res.json({ body: restock, message: "Checkout successful!", orderId });
 	} catch (err) {
 		await connection.rollback();
 		res.status(400).json({ error: err.message });
