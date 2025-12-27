@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require("../db");
 
 // checkout your cart
-router.post("/", async (req, res) => {
+router.post("/cart", async (req, res) => {
 	const {
 		customer_email,
 		order_date,

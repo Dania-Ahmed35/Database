@@ -52,7 +52,7 @@ router.patch("/confirm", async (req, res) => {
 });
 
 // admin places publisher order
-router.post("/order", async (req, res) => {
+router.post("/orderPlace", async (req, res) => {
 	const { role, admin_email, isbn, publisher_name } = req.body;
 	const QUANTITY = 50;
 
