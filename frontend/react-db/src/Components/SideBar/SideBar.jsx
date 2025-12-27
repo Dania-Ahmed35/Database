@@ -33,6 +33,9 @@ const categories = [
 export default function SideBar({ isAdmin }) {
   const [open, setOpen] = useState(false);
   const [errors, setErrors] = useState({});
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [orders, setOrders] = useState([]);
+
 
 
   const [book, setBook] = useState({
@@ -150,6 +153,40 @@ export default function SideBar({ isAdmin }) {
   }
 };
 
+const fetchHistory = async () => {
+  try {
+    // replace 1 with logged-in customer id
+    const res = await axios.get(
+      "http://localhost:8080/orders/history/1"
+    );
+
+    // group by order number
+    const grouped = {};
+    res.data.forEach((row) => {
+      if (!grouped[row.order_no]) {
+        grouped[row.order_no] = {
+          order_no: row.order_no,
+          order_date: row.order_date,
+          total_price: row.total_price,
+          books: [],
+        };
+      }
+      grouped[row.order_no].books.push({
+        isbn: row.isbn,
+        title: row.book_name,
+        quantity: row.quantity,
+        price: row.price,
+      });
+    });
+
+    setOrders(Object.values(grouped));
+  } catch (err) {
+    console.error(err);
+    alert("Failed to load order history");
+  }
+};
+
+
 
 
   return (
@@ -172,13 +209,19 @@ export default function SideBar({ isAdmin }) {
           {!isAdmin && (
             <>
               <ListItem disablePadding>
-                <ListItemButton onClick={() => setOpen(true)}>
-                  <ListItemIcon>
-                    <AddIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="History" />
-                </ListItemButton>
-              </ListItem>
+              <ListItemButton
+                onClick={() => {
+                  setHistoryOpen(true);
+                  fetchHistory();
+                }}
+              >
+                <ListItemIcon>
+                  <InventoryIcon />
+                </ListItemIcon>
+                <ListItemText primary="Past Orders" />
+              </ListItemButton>
+            </ListItem>
+
 
               <Divider />
 
@@ -297,6 +340,48 @@ export default function SideBar({ isAdmin }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+
+      <Dialog
+  open={historyOpen}
+  onClose={() => setHistoryOpen(false)}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle>Order History</DialogTitle>
+
+  <DialogContent dividers>
+    {orders.length === 0 && (
+      <p>No previous orders found.</p>
+    )}
+
+    {orders.map((order) => (
+      <div key={order.order_no} style={{ marginBottom: 20 }}>
+        <h3>Order #{order.order_no}</h3>
+        <p>Date: {order.order_date}</p>
+        <p>Total: {order.total_price} EGP</p>
+
+        <Divider sx={{ my: 1 }} />
+
+        {order.books.map((book, i) => (
+          <div key={i} style={{ marginLeft: 10 }}>
+            <p>
+              <b>{book.title}</b> (ISBN: {book.isbn})
+            </p>
+            <p>
+              Qty: {book.quantity} — Price: {book.price} EGP
+            </p>
+          </div>
+        ))}
+      </div>
+    ))}
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={() => setHistoryOpen(false)}>Close</Button>
+  </DialogActions>
+</Dialog>
+
     </>
   );
 }
