@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// confirm order --> change the order id request body
+// confirm order
+// this updates order status and increases stock , so it needs to be an atomic transaction
 router.patch("/confirm", async (req, res) => {
 	const { orderId } = req.body;
 	const connection = await db.getConnection(); // Get a single connection for the transaction
@@ -10,7 +11,7 @@ router.patch("/confirm", async (req, res) => {
 	try {
 		await connection.beginTransaction();
 
-		// 1. Get the order details (ISBN and Quantity)
+		//  Get the order details (ISBN and Quantity)
 		const [order] = await connection.query(
 			"SELECT isbn, quantity, Status FROM Publisher_Orders WHERE order_id = ?",
 			[orderId]
@@ -26,13 +27,13 @@ router.patch("/confirm", async (req, res) => {
 
 		const { ISBN, Quantity } = order[0];
 
-		// 2. Update Order Status to 'Confirmed'
+		//  Update Order Status to 'Confirmed'
 		await connection.query(
 			'UPDATE Publisher_Orders SET Status = "Confirmed" WHERE order_id = ?',
 			[orderId]
 		);
 
-		// 3. Update Book Stock: Add the ordered quantity to current stock
+		// Update Book Stock: Add the ordered quantity to current stock
 		await connection.query(
 			"UPDATE Books SET stock_level = QuantityInStock + ? WHERE ISBN = ?",
 			[Quantity, ISBN]
@@ -80,9 +81,12 @@ router.post("/order", async (req, res) => {
 		const pub_id = pub[0].publisher_id;
 
 		const sql = `INSERT INTO Publisher_Orders (admin_id, publisher_id, isbn, quantity, status) VALUES (?, ?, ?, 'PENDING')`;
-		await db.query(sql, [admin_id, pub_id, isbn, QUANTITY]);
-
-		res.json({ message: "Order placed in Publisher_Orders table!" });
+		const [orderRes] = await db.query(sql, [admin_id, pub_id, isbn, QUANTITY]);
+		const orderId = orderRes.insertId;
+		res.json({
+			orderId: orderId,
+			message: "Order placed in Publisher_Orders table!",
+		});
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}

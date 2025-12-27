@@ -4,8 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const bookRoutes = require("./routes/books");
 const orderRoutes = require("./routes/orders");
-const authRoutes = require("./routes/users");
+const userRoutes = require("./routes/users");
 const cartRoutes = require("./routes/cart");
+const customerRoutes = require("./routes/customer");
 
 const app = express();
 
@@ -17,8 +18,9 @@ app.use(express.json()); // Parses incoming JSON data
 // Every route inside bookRoutes will now start with /api/books
 app.use("/api/books", bookRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("api/users", authRoutes);
+app.use("api/users", userRoutes);
 app.use("api/cart", cartRoutes);
+app.use("api/customer", customerRoutes);
 
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
