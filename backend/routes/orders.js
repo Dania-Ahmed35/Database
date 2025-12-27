@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// confirm order
+// confirm order --> change the order id request body
 router.patch("/confirm", async (req, res) => {
 	const { orderId } = req.body;
 	const connection = await db.getConnection(); // Get a single connection for the transaction
@@ -52,13 +52,24 @@ router.patch("/confirm", async (req, res) => {
 
 // admin places publisher order
 router.post("/order", async (req, res) => {
-	const { role, admin_id, isbn, publisher_name } = req.body;
+	const { role, admin_email, isbn, publisher_name } = req.body;
 	const QUANTITY = 50;
 
 	if (role !== "admin") return res.status(403).json({ error: "Unauthorized" });
 
 	try {
-		// We need the ID, but the Admin sent the Name
+		// find admin id by Email
+		const [adminSearch] = await connection.query(
+			`SELECT a.admin 
+             FROM Users u 
+             JOIN Admins a ON u.user_id = a.admin_id
+             WHERE u.email = ?`,
+			[admin_email]
+		);
+		if (adminSearch.length === 0)
+			return res.status(404).json({ error: "admin not found" });
+
+		// find publisher id by name
 		const [pub] = await db.query(
 			"SELECT publisher_id FROM Publishers WHERE name = ?",
 			[publisher_name]
@@ -66,9 +77,10 @@ router.post("/order", async (req, res) => {
 
 		if (pub.length === 0)
 			return res.status(404).json({ error: "Publisher not found" });
+		const pub_id = pub[0].publisher_id;
 
-		const sql = `INSERT INTO Publisher_Orders (admin_id, isbn, quantity, status) VALUES (?, ?, ?, 'PENDING')`;
-		await db.query(sql, [admin_id, isbn, QUANTITY]);
+		const sql = `INSERT INTO Publisher_Orders (admin_id, publisher_id, isbn, quantity, status) VALUES (?, ?, ?, 'PENDING')`;
+		await db.query(sql, [admin_id, pub_id, isbn, QUANTITY]);
 
 		res.json({ message: "Order placed in Publisher_Orders table!" });
 	} catch (err) {
