@@ -18,9 +18,9 @@ app.use(express.json()); // Parses incoming JSON data
 // Every route inside bookRoutes will now start with /api/books
 app.use("/api/books", bookRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("api/users", userRoutes);
-app.use("api/cart", cartRoutes);
-app.use("api/customer", customerRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/customer", customerRoutes);
 
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {

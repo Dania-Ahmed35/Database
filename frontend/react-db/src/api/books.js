@@ -1,30 +1,32 @@
-// src/api/books.js
-const BASE_URL = "https://api.themoviedb.org/3/movie";
-const TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmYTA3YTcxNTUzMmMxYTk2ODRmZDRjNTYxMDk1Y2NhYSIsIm5iZiI6MTcyNzg2MjY5OS43NTgwMDAxLCJzdWIiOiI2NmZkMTdhYjZjMzY1OTg1YzhmMjNmMDEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.aR2TSz0MCOlXSMoLjZClgfD_fcGz_Wf1Sf74gnFcD94"; // your Bearer token
+const BASE_URL = "http://localhost:5050/api/books";
 
-export const fetchBooks = async (page, limit = 6) => {
-  try {
-    const res = await fetch(`${BASE_URL}/popular?language=en-US&page=${page}`, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        Authorization: `Bearer ${TOKEN}`,
-      },
-    });
+export const fetchBooks = async () => {
+	try {
+		const res = await fetch(BASE_URL, {
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json",
+				// Only include Authorization if you have implemented JWT in app.js
+				// "Authorization": `Bearer ${TOKEN}`,
+			},
+		});
 
-    const data = await res.json();
+		if (!res.ok) throw new Error("Failed to fetch books");
 
-    // Map TMDb results to your BookCard format
-    const books = data.results.map((b) => ({
-      id: b.id,
-      title: b.title,
-      author: b.original_title,
-      image: `https://image.tmdb.org/t/p/w500${b.poster_path}`,
-    }));
+		const data = await res.json();
 
-    return { books, totalPages: data.total_pages };
-  } catch (error) {
-    console.error("Error fetching books:", error);
-    return { books: [], totalPages: 0 };
-  }
+		// In your backend, 'data' is already the array of books
+		const books = data.map((b) => ({
+			isbn: b.isbn,
+			title: b.title,
+			author: b.author_name || "Unknown Author", // Matches your schema
+			image: b.book_image, // Uses your book_image column
+			price: b.selling_price,
+		}));
+
+		return { books };
+	} catch (error) {
+		console.error("Error fetching books:", error);
+		return { books: [] };
+	}
 };
