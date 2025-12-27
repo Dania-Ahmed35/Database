@@ -2,6 +2,8 @@ import * as React from "react";
 import SearchIcon from "@mui/icons-material/Search";
 import AdbIcon from "@mui/icons-material/Adb";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import {
   AppBar,
   Toolbar,
@@ -64,11 +66,16 @@ export default function HomeNavbar({
   const [checkoutData, setCheckoutData] = React.useState({
   address: "",
   phone: "",
+  cardNumber:"",
+  expiryDate:"",
 });
+const [openAlert, setOpenAlert] = React.useState(false);
 
 const [checkoutErrors, setCheckoutErrors] = React.useState({
   address: "",
   phone: "",
+  cardNumber:"",
+  expiryDate:"",
 });
 
 
@@ -220,25 +227,61 @@ const handleLogin = async (role) => {
 
 
   // checkout
-  const handleCheckoutChange = (field, value) => {
-  setCheckoutData((prev) => ({ ...prev, [field]: value }));
+const handleCheckoutChange = (field, value) => {
+  let error = "";
 
-  if (field === "address") {
-    setCheckoutErrors((prev) => ({
-      ...prev,
-      address: value.length < 10 ? "Address is too short" : "",
-    }));
+  // ---------- CARD NUMBER ----------
+  if (field === "cardNumber") {
+    // remove spaces
+    const cleaned = value.replace(/\s+/g, "");
+
+    if (!/^\d*$/.test(cleaned)) {
+      error = "Card number must contain digits only";
+    } else if (cleaned.length > 0 && cleaned.length !== 16) {
+      error = "Card number must be 16 digits";
+    }
+
+    // format as XXXX XXXX XXXX XXXX
+    value = cleaned
+      .replace(/(.{4})/g, "$1 ")
+      .trim();
   }
 
-  if (field === "phone") {
-    setCheckoutErrors((prev) => ({
-      ...prev,
-      phone: /^[0-9]{10,15}$/.test(value)
-        ? ""
-        : "Phone must be 10–15 digits",
-    }));
+  // ---------- EXPIRY DATE ----------
+  if (field === "expiryDate") {
+    if (!/^\d{0,2}\/?\d{0,2}$/.test(value)) {
+      error = "Use MM/YY format";
+    } else if (value.length === 5) {
+      const [month, year] = value.split("/").map(Number);
+
+      if (month < 1 || month > 12) {
+        error = "Invalid month";
+      } else {
+        const now = new Date();
+        const currentYear = now.getFullYear() % 100;
+        const currentMonth = now.getMonth() + 1;
+
+        if (
+          year < currentYear ||
+          (year === currentYear && month < currentMonth)
+        ) {
+          error = "Card has expired";
+        }
+      }
+    }
   }
+
+  setCheckoutData((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
+
+  setCheckoutErrors((prev) => ({
+    ...prev,
+    [field]: error,
+  }));
 };
+
 
 
   /* ================= JSX ================= */
@@ -380,16 +423,16 @@ const handleLogin = async (role) => {
               sx={{ bgcolor: "#C4A484" }}
               onClick={() => handleLogin(openLogin)}
               disabled={
-                openLogin === "admin"
-                  ? adminEmailError ||
-                    adminPasswordError ||
-                    !adminLogin.email ||
-                    !adminLogin.password
-                  : userEmailError ||
-                    userPasswordError ||
-                    !userLogin.email ||
-                    !userLogin.password
-              }
+              checkoutErrors.address ||
+              checkoutErrors.phone ||
+              checkoutErrors.cardNumber ||
+              checkoutErrors.expiryDate ||
+              !checkoutData.address ||
+              !checkoutData.phone ||
+              !checkoutData.cardNumber ||
+              !checkoutData.expiryDate
+            }
+
             >
               Login
             </Button>
@@ -462,83 +505,96 @@ const handleLogin = async (role) => {
           </DialogActions>
         </Dialog>
 
-            <Dialog open={cartOpen} onClose={() => setCartOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Your Cart</DialogTitle>
 
-    <Dialog open={cartOpen} onClose={() => setCartOpen(false)} maxWidth="sm" fullWidth>
-      <DialogTitle>Your Cart</DialogTitle>
+{/* ================= CART DIALOG ================= */}
+<Dialog
+  open={cartOpen}
+  onClose={() => setCartOpen(false)}
+  maxWidth="sm"
+  fullWidth
+>
+  {/* HEADER */}
+  <DialogTitle>Your Cart</DialogTitle>
 
-      <DialogContent>
-        {cartItems.length === 0 ? (
-          <Typography>Your cart is empty</Typography>
-        ) : (
-          cartItems.map((item) => (
-            <Box key={item.id} sx={{ display: "flex", mb: 2 }}>
-              <img
-                src={
-                  item.image ||
-                  `https://image.tmdb.org/t/p/w200${item.poster_path}`
-                }
-                alt={item.title}
-                style={{ width: 70, height: 100 }}
-              />
+  {/* BODY */}
+  <DialogContent>
+    {cartItems.length === 0 ? (
+      <Typography>Your cart is empty</Typography>
+    ) : (
+      cartItems.map((item) => (
+        <Box key={item.id} sx={{ display: "flex", mb: 2 }}>
+          <img
+            src={
+              item.image ||
+              `https://image.tmdb.org/t/p/w200${item.poster_path}`
+            }
+            alt={item.title}
+            style={{ width: 70, height: 100 }}
+          />
 
-              <Box sx={{ flexGrow: 1, ml: 2 }}>
-                <Typography fontWeight={600}>{item.title}</Typography>
-                <Typography>Quantity: {item.quantity}</Typography>
-              </Box>
+          <Box sx={{ flexGrow: 1, ml: 2 }}>
+            <Typography fontWeight={600}>{item.title}</Typography>
+            <Typography>Quantity: {item.quantity}</Typography>
+          </Box>
 
-              <Button onClick={() => decrementQty(item.id)}>−</Button>
-              <Typography>{item.quantity}</Typography>
-              <Button onClick={() => incrementQty(item.id)}>+</Button>
+          <Button onClick={() => decrementQty(item.id)}>−</Button>
+          <Typography>{item.quantity}</Typography>
+          <Button onClick={() => incrementQty(item.id)}>+</Button>
 
-              <IconButton
-                color="error"
-                onClick={() => removeFromCart(item.id)}
-              >
-                🗑
-              </IconButton>
-            </Box>
-          ))
-        )}
-      </DialogContent>
-
-      {/* ✅ CLOSE BUTTON GOES HERE */}
-      <DialogActions sx={{ justifyContent: "center" }}>
-        <Button
-          variant="outlined"
-          onClick={() => setCartOpen(false)}
-        >
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
+          <IconButton
+            color="error"
+            onClick={() => removeFromCart(item.id)}
+          >
+            🗑
+          </IconButton>
+        </Box>
+      ))
+    )}
+  </DialogContent>
 
 
+  {/* FOOTER (TOTAL + CHECKOUT) */}
+  <DialogActions
+    sx={{
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 1,
+      pb: 2,
+    }}
+  >
+    <Typography fontWeight={700}>
+      Cart Total: {cartTotal} EGP
+    </Typography>
 
-      {/* Footer */}
-      <DialogActions
-        sx={{ flexDirection: "column", alignItems: "center", gap: 1, pb: 2 }}
-      >
-        <Typography fontWeight={700}>
-          Cart Total: {cartTotal} EGP
-        </Typography>
+    <Button
+      variant="contained"
+      sx={{ bgcolor: "#C4A484", width: "60%" }}
+      disabled={cartItems.length === 0}
+      onClick={() => {
+        setCartOpen(false);
+        setCheckoutOpen(true);
+      }}
+    >
+      Checkout
+    </Button>
+    
+  </DialogActions>
+  
+  {/* CLOSE BUTTON (same position as before) */}
+  <DialogActions sx={{ justifyContent: "center" }}>
+    <Button variant="outlined" onClick={() => setCartOpen(false)}>
+      Close
+    </Button>
+  </DialogActions>
+</Dialog>
 
-        <Button
-          variant="contained"
-          sx={{ bgcolor: "#C4A484", width: "60%" }}
-          disabled={cartItems.length === 0}
-          onClick={() => {
-            setCartOpen(false);
-            setCheckoutOpen(true);
-          }}
-        >
-          Checkout
-        </Button>
-      </DialogActions>
-    </Dialog>
-
-    <Dialog open={checkoutOpen} onClose={() => setCheckoutOpen(false)}>
+{/* ================= CHECKOUT DIALOG ================= */}
+<Dialog
+  open={checkoutOpen}
+  onClose={() => setCheckoutOpen(false)}
+  maxWidth="sm"
+  fullWidth
+>
   <DialogTitle>Checkout</DialogTitle>
 
   <DialogContent>
@@ -547,7 +603,9 @@ const handleLogin = async (role) => {
       fullWidth
       margin="dense"
       value={checkoutData.address}
-      onChange={(e) => handleCheckoutChange("address", e.target.value)}
+      onChange={(e) =>
+        handleCheckoutChange("address", e.target.value)
+      }
       error={Boolean(checkoutErrors.address)}
       helperText={checkoutErrors.address}
     />
@@ -557,58 +615,117 @@ const handleLogin = async (role) => {
       fullWidth
       margin="dense"
       value={checkoutData.phone}
-      onChange={(e) => handleCheckoutChange("phone", e.target.value)}
+      onChange={(e) =>
+        handleCheckoutChange("phone", e.target.value)
+      }
       error={Boolean(checkoutErrors.phone)}
       helperText={checkoutErrors.phone}
     />
+        <TextField
+      label="Card Number"
+      fullWidth
+      margin="dense"
+      value={checkoutData.cardNumber}
+      onChange={(e) =>
+        handleCheckoutChange("cardNumber", e.target.value)
+      }
+      error={Boolean(checkoutErrors.cardNumber)}
+      helperText={checkoutErrors.cardNumber}
+    />
+        <TextField
+      label="Expiry Date"
+      fullWidth
+      margin="dense"
+      value={checkoutData.expiryDate}
+      onChange={(e) =>
+        handleCheckoutChange("expiryDate", e.target.value)
+      }
+      error={Boolean(checkoutErrors.expiryDate)}
+      helperText={checkoutErrors.expiryDate}
+    />
   </DialogContent>
 
-
   <DialogActions>
-    <Button onClick={() => setCheckoutOpen(false)}>Cancel</Button>
-        <Button
-      variant="contained"
-      sx={{ bgcolor: "#C4A484" }}
-      disabled={
-        checkoutErrors.address ||
-        checkoutErrors.phone ||
-        !checkoutData.address ||
-        !checkoutData.phone
-      }
-      onClick={() => {
-        const orderPayload = {
-          email:
-            openLogin === "admin"
-              ? adminLogin.email
-              : userLogin.email,
-          address: checkoutData.address,
-          phone: checkoutData.phone,
-          items: cartItems.map((item) => ({
-            title: item.title,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-          total: cartTotal,
-        };
-
-        // 🔍 MOCK DATABASE CALL
-        console.log("===== ORDER SENT TO DATABASE =====");
-        console.log(orderPayload);
-        console.log("=================================");
-
-        // reset
-        setCheckoutOpen(false);
-        setCartItems([]);
-        setCheckoutData({ address: "", phone: "" });
-      }}
-    >
-      Confirm Order
+    <Button onClick={() => setCheckoutOpen(false)}>
+      Cancel
     </Button>
+
+<Button
+  variant="contained"
+  sx={{ bgcolor: "#C4A484" }}
+  disabled={
+    checkoutErrors.address ||
+    checkoutErrors.phone ||
+    checkoutErrors.cardNumber ||
+    checkoutErrors.expiryDate ||
+    !checkoutData.address ||
+    !checkoutData.phone ||
+    !checkoutData.cardNumber ||
+    !checkoutData.expiryDate
+  }
+  onClick={() => {
+    const orderPayload = {
+      email:
+        openLogin === "admin"
+          ? adminLogin.email
+          : userLogin.email,
+
+      orderDate: Date.now(),
+
+      cardNumber: checkoutData.cardNumber,
+      expDate: checkoutData.expiryDate,
+
+      address: checkoutData.address,
+      phone: checkoutData.phone,
+
+      items: cartItems.map((item) => ({
+        title: item.title,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+
+      total: cartTotal,
+    };
+
+    console.log("===== ORDER SENT TO DATABASE =====");
+    console.log(orderPayload);
+    console.log("=================================");
+
+    setOpenAlert(true);
+
+    // reset
+    setCheckoutOpen(false);
+    setCartItems([]);
+    setCheckoutData({
+      address: "",
+      phone: "",
+      cardNumber: "",
+      expiryDate: "",
+    });
+  }}
+>
+  Confirm Order
+</Button>
 
   </DialogActions>
 </Dialog>
 
 
+      <Snackbar
+        open={openAlert}
+        autoHideDuration={3000}
+        onClose={() => setOpenAlert(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setOpenAlert(false)}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          Order Placed!
+        </Alert>
+      </Snackbar>
 
       </Toolbar>
     </AppBar>

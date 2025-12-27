@@ -1,133 +1,302 @@
-import * as React from "react";
-import Box from "@mui/material/Box";
-import CssBaseline from "@mui/material/CssBaseline";
-import Divider from "@mui/material/Divider";
-import Drawer from "@mui/material/Drawer";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import InboxIcon from "@mui/icons-material/MoveToInbox";
-import MailIcon from "@mui/icons-material/Mail";
+import { useState } from "react";
+import {
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  MenuItem,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import axios from "axios";
 
 const drawerWidth = 240;
 const navbarHeight = 64;
 
+const categories = [
+  "Science",
+  "Art",
+  "Religion",
+  "History",
+  "Geography",
+];
+
 export default function SideBar({ isAdmin }) {
-  const drawer = (
-    <div>
-      {/* USER SECTION */}
-      <List>
-        {["Inbox", "Starred", "Send email", "Drafts"].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-              </ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+  const [open, setOpen] = useState(false);
+  const [errors, setErrors] = useState({});
 
-      <Divider />
 
-      <List>
-        {["All mail", "Trash", "Spam"].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemIcon>
-                {index % 2 === 0 ? <InboxIcon /> : <MailIcon />}
-              </ListItemIcon>
-              <ListItemText primary={text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+  const [book, setBook] = useState({
+    isbn: "",
+    title: "",
+    authors: [""],
+    publisherName: "",
+    publicationYear: "",
+    price: "",
+    category: "",
+    threshold: "",
+    stockLevel:"",
+  });
 
-      {/* 🔒 ADMIN SECTION */}
-      {isAdmin && (
-        <>
-          <Divider sx={{ my: 2 }} />
+  const validate = () => {
+  const newErrors = {};
 
-          <List>
-            <ListItem>
-              <ListItemText
-                primary="Admin"
-                primaryTypographyProps={{ fontWeight: 700 }}
-              />
-            </ListItem>
+  // ISBN: numbers only, not empty
+  if (!/^\d+$/.test(book.isbn)) {
+    newErrors.isbn = "ISBN must contain numbers only";
+  }
 
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  <AddIcon />
-                </ListItemIcon>
-                <ListItemText primary="Add New Book" />
-              </ListItemButton>
-            </ListItem>
+  // Title: letters, spaces, numbers allowed
+  if (!book.title.trim()) {
+    newErrors.title = "Title is required";
+  }
 
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  <EditIcon />
-                </ListItemIcon>
-                <ListItemText primary="History" />
-              </ListItemButton>
-            </ListItem>
-              <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  <EditIcon />
-                </ListItemIcon>
-                <ListItemText primary="Top 5 customers" />
-              </ListItemButton>
-            </ListItem>
+  // Authors: letters & spaces only
+  book.authors.forEach((author, i) => {
+    if (!/^[a-zA-Z\s]+$/.test(author.trim())) {
+      newErrors[`author${i}`] = "Author name must contain letters only";
+    }
+  });
 
-                <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  <EditIcon />
-                </ListItemIcon>
-                <ListItemText primary="History" />
-              </ListItemButton>
-            </ListItem>
+  // Publisher name
+  if (!/^[a-zA-Z\s]+$/.test(book.publisherName.trim())) {
+    newErrors.publisherName = "Publisher name must contain letters only";
+  }
 
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemIcon>
-                  <InventoryIcon />
-                </ListItemIcon>
-                <ListItemText primary="Confirm Orders" />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        </>
-      )}
-    </div>
-  );
+  // Publication year
+  if (
+    !Number.isInteger(Number(book.publicationYear)) ||
+    Number(book.publicationYear) < 0
+  ) {
+    newErrors.publicationYear = "Year must be a positive number";
+  }
+
+  // Price
+  if (Number(book.price) < 0) {
+    newErrors.price = "Price cannot be negative";
+  }
+
+  // Threshold
+  if (Number(book.threshold) < 0) {
+    newErrors.threshold = "Threshold cannot be negative";
+  }
+
+  // Stock level
+  if (Number(book.stockLevel) < 0) {
+    newErrors.stockLevel = "Stock level cannot be negative";
+  }
+
+  // Category
+  if (!book.category) {
+    newErrors.category = "Category is required";
+  }
+
+  setErrors(newErrors);
+
+  // if no errors → valid
+  return Object.keys(newErrors).length === 0;
+};
+
+
+  const handleChange = (e) => {
+    setBook({ ...book, [e.target.name]: e.target.value });
+  };
+
+  const handleAuthorChange = (i, value) => {
+    const updated = [...book.authors];
+    updated[i] = value;
+    setBook({ ...book, authors: updated });
+  };
+
+  const addAuthor = () => {
+    setBook({ ...book, authors: [...book.authors, ""] });
+  };
+
+ const handleSubmit = async () => {
+  if (!validate()) return; //  stop if invalid
+
+  try {
+    const bookRes = {
+      role: "admin",
+
+      isbn: book.isbn,
+      title: book.title,
+
+      publication_year: Number(book.publicationYear),
+      selling_price: Number(book.price),
+      stock_level: Number(book.threshold),
+
+      publisher_name: book.publisherName,
+      category_name: book.category,
+      book_image: null,
+    };
+
+    await axios.post("http://localhost:8080/book", bookRes);
+
+    setOpen(false);
+    alert("Book added successfully");
+  } catch (err) {
+    console.error(err.response?.data || err);
+    alert("Failed to add book");
+  }
+};
+
+
 
   return (
-    <Box sx={{ width: drawerWidth, flexShrink: 0 }}>
-      <CssBaseline />
+    <>
       <Drawer
         variant="permanent"
         sx={{
+          width: drawerWidth,
+          flexShrink: 0,
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
             top: `${navbarHeight}px`,
-            height: `calc(100% - ${navbarHeight}px)`,
+            height: `calc(100vh - ${navbarHeight}px)`,
           },
         }}
-        open
       >
-        {drawer}
+
+        <List>
+          {!isAdmin && (
+            <>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => setOpen(true)}>
+                  <ListItemIcon>
+                    <AddIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="History" />
+                </ListItemButton>
+              </ListItem>
+
+              <Divider />
+
+
+            </>
+          )}
+        </List>
+        <List>
+          {isAdmin && (
+            <>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => setOpen(true)}>
+                  <ListItemIcon>
+                    <AddIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Add New Book" />
+                </ListItemButton>
+              </ListItem>
+
+              <Divider />
+
+              <ListItem disablePadding>
+                <ListItemButton>
+                  <ListItemIcon>
+                    <InventoryIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Confirm Orders" />
+                </ListItemButton>
+              </ListItem>
+            </>
+          )}
+        </List>
       </Drawer>
-    </Box>
+
+      {/* DIALOG INSIDE SIDEBAR */}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Book</DialogTitle>
+
+        <DialogContent dividers>
+          <TextField
+            fullWidth
+            label="ISBN"
+            name="isbn"
+            onChange={handleChange}
+            margin="normal"
+            error={!!errors.isbn}
+            helperText={errors.isbn}
+          />
+
+          <TextField
+            fullWidth
+            label="Title"
+            name="title"
+            onChange={handleChange}
+            margin="normal"
+            error={!!errors.title}
+            helperText={errors.title}
+          />
+
+
+          {book.authors.map((author, i) => (
+            <TextField
+              key={i}
+              fullWidth
+              label={`Author ${i + 1}`}
+              value={author}
+              onChange={(e) => handleAuthorChange(i, e.target.value)}
+              margin="normal"
+            />
+          ))}
+
+          <Button onClick={addAuthor} sx={{ mb: 2 }}>
+            + Add Author
+          </Button>
+
+          <TextField fullWidth label="Publisher Name" name="publisherName" onChange={handleChange} margin="normal" error={!!errors.price}
+          helperText={errors.price} />
+                    <TextField
+          fullWidth
+          type="number"
+          label="Publication Year"
+          name="publicationYear"
+          onChange={handleChange}
+          margin="normal"
+          error={!!errors.publicationYear}
+          helperText={errors.publicationYear}
+        />
+
+            <TextField
+            fullWidth
+            type="number"
+            label="Price"
+            name="price"
+            onChange={handleChange}
+            margin="normal"
+            error={!!errors.price}
+            helperText={errors.price}
+          />
+
+          <TextField fullWidth type="number" label="Threshold" name="threshold" onChange={handleChange} margin="normal" error={!!errors.threshold}
+          helperText={errors.threshold} />
+          <TextField fullWidth type="number" label="stockLevel" name="stockLevel" onChange={handleChange} margin="normal" error={!!errors.stockLevel}
+          helperText={errors.stockLevel} />
+
+          <TextField select fullWidth label="Category" name="category" onChange={handleChange} margin="normal">
+            {categories.map((c) => (
+              <MenuItem key={c} value={c}>{c}</MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSubmit}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

@@ -35,7 +35,7 @@ export default function Home({
       style={{
         minHeight: "100vh",
         background: "#d2c3b4ff",
-        overflowX: "hidden", // 🔒 VERY IMPORTANT
+        overflowX: "hidden", 
       }}
     >
       {/* NAVBAR */}
