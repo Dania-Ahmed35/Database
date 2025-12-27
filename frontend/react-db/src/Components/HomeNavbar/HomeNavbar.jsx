@@ -789,6 +789,8 @@ const handleCheckoutChange = (field, value) => {
       Cancel
     </Button>
 
+import axios from "axios";
+
 <Button
   variant="contained"
   sx={{ bgcolor: "#C4A484" }}
@@ -802,54 +804,37 @@ const handleCheckoutChange = (field, value) => {
     !checkoutData.cardNumber ||
     !checkoutData.expiryDate
   }
-  onClick={() => {
-    const orderPayload = {
-      email:
-        openLogin === "admin"
-          ? adminLogin.email
-          : userLogin.email,
+  onClick={async () => {
+    try {
+      // 🔹 CALL BACKEND CONFIRM API
+      await axios.patch("http://localhost:8080/confirm", {
+        orderId: selectedOrderId, 
+      });
 
-      orderDate: Date.now(),
+      // 🔹 SUCCESS UI
+      setOpenAlert(true);
 
-      cardNumber: checkoutData.cardNumber,
-      expDate: checkoutData.expiryDate,
-
-      address: checkoutData.address,
-      phone: checkoutData.phone,
-
-      items: cartItems.map((item) => ({
-        title: item.title,
-        price: item.price,
-        quantity: item.quantity,
-      })),
-
-      total: cartTotal,
-    };
-
-    console.log("===== ORDER SENT TO DATABASE =====");
-    console.log(orderPayload);
-    console.log("=================================");
-
-    setOpenAlert(true);
-
-    // reset
-    setCheckoutOpen(false);
-    setCartItems([]);
-    setCheckoutData({
-      address: "",
-      phone: "",
-      cardNumber: "",
-      expiryDate: "",
-    });
+      setCheckoutOpen(false);
+      setCartItems([]);
+      setCheckoutData({
+        address: "",
+        phone: "",
+        cardNumber: "",
+        expiryDate: "",
+      });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || "Failed to confirm order");
+    }
   }}
 >
   Confirm Order
 </Button>
 
+
   </DialogActions>
 
 </Dialog>
-{/* ================= EDIT PROFILE ================= */}
 <Dialog
   open={openProfile}
   onClose={() => setOpenProfile(false)}
