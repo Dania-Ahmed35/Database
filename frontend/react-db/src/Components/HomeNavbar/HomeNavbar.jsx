@@ -107,8 +107,7 @@ const [profileErrors, setProfileErrors] = React.useState({});
   const [adminPasswordError, setAdminPasswordError] = React.useState("");
   const [userEmailError, setUserEmailError] = React.useState("");
   const [userPasswordError, setUserPasswordError] = React.useState("");
-  const [cartItems, setCartItems] = useState([]);
-  const [carttTotal, setCarttTotal] = useState(0);
+  const [carttTotal, setCarttTotal] = React.useState(0);
   const [loginServerError, setLoginServerError] = React.useState("");
   const [checkoutData, setCheckoutData] = React.useState({
   address: "",

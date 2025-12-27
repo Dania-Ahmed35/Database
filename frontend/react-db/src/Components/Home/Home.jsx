@@ -33,11 +33,6 @@ export default function Home({
     getBooks();
   }, [currentPage]);
 // ---------------- FETCH CART WHEN CART OPENS ----------------
-useEffect(() => {
-  if (cartOpen) {
-    fetchCart();
-  }
-}, [cartOpen]);
 
   return (
     <div
