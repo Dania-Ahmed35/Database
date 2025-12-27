@@ -20,6 +20,8 @@ import {
   DialogActions,
   Slide,
   TextField,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 
 /* ================= CONSTANTS ================= */
@@ -29,6 +31,8 @@ const pages = ["Admin Login", "User Login"];
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
+
+
 
 /* ================= VALIDATORS ================= */
 
@@ -42,17 +46,58 @@ const isValidPhone = (v) => /^[0-9]{10,15}$/.test(v);
 
 export default function HomeNavbar({
   cartItems,
+  setCartItems, 
   incrementQty,
   decrementQty,
   removeFromCart,
-  isAdmin,        
+  isAdmin,
+  setBooks,
+  onLogout,
 }) {
+
 
 
   /* ---------- UI STATE ---------- */
   const [openLogin, setOpenLogin] = React.useState(null); // "admin" | "user"
   const [openUserRegister, setOpenUserRegister] = React.useState(false);
   const [openAdminRegister, setOpenAdminRegister] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [openProfile, setOpenProfile] = React.useState(false);
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const openMenu = Boolean(anchorEl);
+
+  const handleAvatarClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleEditProfile = () => {
+    setProfileData(
+      openLogin === "admin" ? adminRegister : userRegister
+    );
+    setOpenProfile(true);
+    handleMenuClose();
+  };
+
+  const handleLogoutClick = () => {
+  onLogout();     
+  handleMenuClose();
+};
+
+
+const [profileData, setProfileData] = React.useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  password: "",
+});
+
+const [profileErrors, setProfileErrors] = React.useState({});
+
 
   /* ---------- LOGIN STATE ---------- */
   const [adminLogin, setAdminLogin] = React.useState({ email: "", password: "" });
@@ -62,6 +107,7 @@ export default function HomeNavbar({
   const [adminPasswordError, setAdminPasswordError] = React.useState("");
   const [userEmailError, setUserEmailError] = React.useState("");
   const [userPasswordError, setUserPasswordError] = React.useState("");
+  const [cartItems, setCartItems] = useState([]);
   const [loginServerError, setLoginServerError] = React.useState("");
   const [checkoutData, setCheckoutData] = React.useState({
   address: "",
@@ -77,6 +123,7 @@ const [checkoutErrors, setCheckoutErrors] = React.useState({
   cardNumber:"",
   expiryDate:"",
 });
+
 
 
   /* ---------- REGISTER STATE ---------- */
@@ -139,7 +186,24 @@ const cartTotal = cartItems.reduce(
         );
     }
   };
+  try {
+    const res = await axios.get(
+      `http://localhost:5050/cartDisplay`,
+      {
+        params: { customer_email: auth.email },
+      }
+    );
 
+    setCartItems(res.data.items);
+    setCartTotal(
+      res.data.items.length > 0
+        ? res.data.items[0].cart_total
+        : 0
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
 const handleLogin = async (role) => {
   const data = role === "admin" ? adminLogin : userLogin;
 
@@ -155,7 +219,9 @@ const handleLogin = async (role) => {
     //  FRONTEND to BACKEND 
     console.log("LOGIN DATA SENT:", { ...data, role });
 
+
     const res = await fetch("http://localhost:5050/api/users/login", {
+ 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, role }),
@@ -168,7 +234,6 @@ const handleLogin = async (role) => {
       return;
     }
 
-    // ✅ SUCCESS
     setIsLoggedIn(true);
     setOpenLogin(null);
     setAdminLogin({ email: "", password: "" });
@@ -179,6 +244,36 @@ const handleLogin = async (role) => {
   }
 };
 
+const handleSearch = async (value) => {
+  setSearchTerm(value);
+
+  // If search is empty → reload all books
+  if (value.trim() === "") {
+    try {
+      const res = await axios.get("http://localhost:5050/books");
+      setBooks(res.data);
+    } catch (err) {
+      console.error("Failed to reload books", err);
+    }
+    return;
+  }
+
+  try {
+    const res = await axios.get("http://localhost:5050/search", {
+      params: {
+        isbn: value,
+        title: value,
+        category: value,
+        author: value,
+        publisher: value,
+      },
+    });
+
+    setBooks(res.data);
+  } catch (err) {
+    console.error("Search failed", err);
+  }
+};
 
 
   /* ================= REGISTER HANDLERS ================= */
@@ -196,6 +291,31 @@ const handleLogin = async (role) => {
 
     return { ...prev, [field]: msg };
   };
+  const handleProfileChange = (field, value) => {
+  setProfileData((p) => ({ ...p, [field]: value }));
+  setProfileErrors((p) => validateField(field, value, p));
+};
+
+const handleProfileSave = async () => {
+  if (Object.values(profileErrors).some(Boolean)) return;
+
+  try {
+    await fetch("http://localhost:5050/api/update-profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...profileData,
+        role: isAdmin ? "admin" : "user",
+      }),
+    });
+
+    setOpenProfile(false);
+    setOpenAlert(true);
+  } catch (err) {
+    console.error("Profile update failed", err);
+  }
+};
+
 
   const handleRegisterChange = (role, field, value) => {
     const setter = role === "admin" ? setAdminRegister : setUserRegister;
@@ -239,61 +359,46 @@ const handleLogin = async (role) => {
 };
 
 
+
+
+
+
   // checkout
 const handleCheckoutChange = (field, value) => {
   let error = "";
 
-  // ---------- CARD NUMBER ----------
   if (field === "cardNumber") {
-    // remove spaces
     const cleaned = value.replace(/\s+/g, "");
+    if (!/^\d*$/.test(cleaned)) error = "Digits only";
+    else if (cleaned.length && cleaned.length !== 16)
+      error = "16 digits required";
 
-    if (!/^\d*$/.test(cleaned)) {
-      error = "Card number must contain digits only";
-    } else if (cleaned.length > 0 && cleaned.length !== 16) {
-      error = "Card number must be 16 digits";
-    }
-
-    // format as XXXX XXXX XXXX XXXX
     value = cleaned
+      .slice(0, 16)
       .replace(/(.{4})/g, "$1 ")
       .trim();
   }
 
-  // ---------- EXPIRY DATE ----------
   if (field === "expiryDate") {
-    if (!/^\d{0,2}\/?\d{0,2}$/.test(value)) {
-      error = "Use MM/YY format";
-    } else if (value.length === 5) {
-      const [month, year] = value.split("/").map(Number);
-
-      if (month < 1 || month > 12) {
-        error = "Invalid month";
-      } else {
-        const now = new Date();
-        const currentYear = now.getFullYear() % 100;
-        const currentMonth = now.getMonth() + 1;
-
-        if (
-          year < currentYear ||
-          (year === currentYear && month < currentMonth)
-        ) {
-          error = "Card has expired";
-        }
-      }
+    if (!/^\d{0,2}\/?\d{0,2}$/.test(value))
+      error = "MM/YY format";
+    else if (value.length === 5) {
+      const [m, y] = value.split("/").map(Number);
+      const now = new Date();
+      if (m < 1 || m > 12) error = "Invalid month";
+      else if (
+        y < now.getFullYear() % 100 ||
+        (y === now.getFullYear() % 100 && m < now.getMonth() + 1)
+      )
+        error = "Card expired";
     }
   }
 
-  setCheckoutData((prev) => ({
-    ...prev,
-    [field]: value,
-  }));
-
-  setCheckoutErrors((prev) => ({
-    ...prev,
-    [field]: error,
-  }));
+  setCheckoutData((p) => ({ ...p, [field]: value }));
+  setCheckoutErrors((p) => ({ ...p, [field]: error }));
 };
+
+
 
 
 
@@ -336,7 +441,13 @@ const handleCheckoutChange = (field, value) => {
             }}
           >
             <SearchIcon sx={{ fontSize: 20 }} />
-            <InputBase placeholder="Search…" sx={{ ml: 1 }} />
+           <InputBase
+          placeholder="Search by ISBN, title, author, category, publisher..."
+          sx={{ ml: 1, flex: 1 }}
+          value={searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+
           </Box>
           {isLoggedIn && (
           <Tooltip title="Cart">
@@ -346,9 +457,35 @@ const handleCheckoutChange = (field, value) => {
           </Tooltip>
         )}
 
-          <IconButton>
-            <Avatar />
-          </IconButton>
+          <Tooltip title="Account">
+            <IconButton onClick={handleAvatarClick}>
+              <Avatar />
+            </IconButton>
+
+                </Tooltip>
+                <Menu
+          anchorEl={anchorEl}
+          open={openMenu}
+          onClose={handleMenuClose}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "right",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "right",
+          }}
+        >
+          <MenuItem onClick={handleEditProfile}>
+            Edit Info
+          </MenuItem>
+
+          <MenuItem onClick={handleLogoutClick}>
+            Logout
+          </MenuItem>
+        </Menu>
+
+
         </Box>
 
         {/* LOGIN DIALOG */}
@@ -435,6 +572,7 @@ const handleCheckoutChange = (field, value) => {
               variant="contained"
               sx={{ bgcolor: "#C4A484" }}
               onClick={() => handleLogin(openLogin)}
+
             //   disabled={
             //   checkoutErrors.address ||
             //   checkoutErrors.phone ||
@@ -720,6 +858,54 @@ const handleCheckoutChange = (field, value) => {
   Confirm Order
 </Button>
 
+  </DialogActions>
+
+</Dialog>
+{/* ================= EDIT PROFILE ================= */}
+<Dialog
+  open={openProfile}
+  onClose={() => setOpenProfile(false)}
+  TransitionComponent={Transition}
+  maxWidth="sm"
+  fullWidth
+>
+  <DialogTitle>Edit Personal Information</DialogTitle>
+
+  <DialogContent>
+    {["firstName", "lastName", "email", "phone", "password"].map((field) => (
+      <TextField
+        key={field}
+        label={field}
+        type={field === "password" ? "password" : "text"}
+        fullWidth
+        margin="dense"
+        value={profileData[field]}
+        onChange={(e) =>
+          handleProfileChange(field, e.target.value)
+        }
+        error={Boolean(profileErrors[field])}
+        helperText={
+          field === "password"
+            ? "Leave empty to keep current password"
+            : profileErrors[field]
+        }
+      />
+    ))}
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={() => setOpenProfile(false)}>
+      Cancel
+    </Button>
+
+    <Button
+      variant="contained"
+      sx={{ bgcolor: "#C4A484" }}
+      disabled={Object.values(profileErrors).some(Boolean)}
+      onClick={handleProfileSave}
+    >
+      Save Changes
+    </Button>
   </DialogActions>
 </Dialog>
 
