@@ -106,7 +106,11 @@ router.post("/login", async (req, res) => {
 			},
 		});
 	} catch (err) {
-		res.status(500).json({ error: err.message });
+		console.error("Login Error:", err);
+		// Ensure we always return JSON so the frontend can parse it
+		res
+			.status(500)
+			.json({ error: "Internal Server Error. Please try again later." });
 	}
 });
 
